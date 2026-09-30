@@ -33,3 +33,14 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #9AA8A0;
 }
+
+/* Hide Netlify drawer & badge widgets if injected */
+netlify-drawer,
+#netlify-drawer,
+[data-netlify-drawer],
+[id*="netlify-drawer"],
+.netlify-badge {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
