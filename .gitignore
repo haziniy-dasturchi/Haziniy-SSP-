@@ -1,0 +1,27 @@
+# Supabase
+supabase/.temp/
+supabase/.branches/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+dist/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+*.dump
+*.sql.gz

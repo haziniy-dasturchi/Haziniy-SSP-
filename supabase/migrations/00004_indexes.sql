@@ -1,0 +1,10 @@
+CREATE INDEX idx_daily_facts_lookup ON daily_facts(branch_id, metric_id, fact_date);
+CREATE INDEX idx_daily_facts_employee ON daily_facts(branch_id, metric_id, employee_id, fact_date);
+CREATE INDEX idx_monthly_plans_lookup ON monthly_plans(branch_id, metric_id, month);
+CREATE INDEX idx_monthly_plans_employee ON monthly_plans(branch_id, metric_id, employee_id, month);
+CREATE INDEX idx_metrics_department ON metrics(department_id) WHERE is_active = true;
+CREATE INDEX idx_profiles_branch ON profiles(branch_id) WHERE is_active = true;
+CREATE INDEX idx_profiles_phone ON profiles(phone);
+CREATE INDEX idx_audit_log_entity ON audit_log(entity, entity_id);
+CREATE INDEX idx_audit_log_at ON audit_log(at DESC);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id, at DESC);
