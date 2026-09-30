@@ -48,13 +48,16 @@ const PageLoader = () => (
   </div>
 );
 
+import { ConfigGate } from './components/common/ConfigGate';
+
 export const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <Suspense fallback={<PageLoader />}>
+    <ConfigGate>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Public Route */}
                 <Route path="/login" element={<Login />} />
@@ -212,7 +215,8 @@ export const App: React.FC = () => {
         </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>
-  );
+  </ConfigGate>
+);
 };
 
 export default App;

@@ -1,15 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const defaultUrl = 'https://wyvaqahmlgwavaupwluw.supabase.co';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase URL yoki Anon Key ko\'rsatilmagan! .env faylini tekshiring.');
-}
+export const getSupabaseConfig = () => {
+  const url = import.meta.env.VITE_SUPABASE_URL || defaultUrl;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const localKey = typeof window !== 'undefined' ? localStorage.getItem('haziniy_anon_key') || '' : '';
+  const anonKey = envKey || localKey;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+  return {
+    url,
+    anonKey,
+    isConfigured: !!anonKey && anonKey !== 'placeholder-key',
+  };
+};
+
+const config = getSupabaseConfig();
+
+export const supabase = createClient(
+  config.url,
+  config.anonKey || 'placeholder-key-to-prevent-crash',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  }
+);
