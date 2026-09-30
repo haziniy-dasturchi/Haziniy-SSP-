@@ -1,6 +1,6 @@
 -- pgTAP tests for plan distribution
 BEGIN;
-SELECT plan(12);
+SELECT plan(11);
 
 -- ============================================================================
 -- Setup: insert test data directly (runs as postgres, bypasses RLS)

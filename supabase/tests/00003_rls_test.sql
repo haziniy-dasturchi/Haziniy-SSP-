@@ -23,8 +23,8 @@ INSERT INTO departments (id, name, weight, sort_order, is_active) VALUES
 ON CONFLICT (id) DO UPDATE SET is_active = true;
 
 INSERT INTO roles (id, name, is_system, branch_scope) VALUES
-  ('r0000000-0000-0000-0000-000000000001', 'Boshqaruvchi', true, 'all'),
-  ('r0000000-0000-0000-0000-000000000003', 'O''qituvchi', false, 'own')
+  ('ca000000-0000-0000-0000-000000000001', 'Boshqaruvchi', true, 'all'),
+  ('ca000000-0000-0000-0000-000000000003', 'O''qituvchi', false, 'own')
 ON CONFLICT (id) DO UPDATE SET branch_scope = EXCLUDED.branch_scope;
 
 -- Insert metrics
@@ -35,26 +35,26 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Role permissions for O'qituvchi
 INSERT INTO role_permissions (role_id, module, can_view) VALUES
-  ('r0000000-0000-0000-0000-000000000003', 'ssp', true)
+  ('ca000000-0000-0000-0000-000000000003', 'ssp', true)
 ON CONFLICT (role_id, module) DO NOTHING;
 
 -- Boshqaruvchi perms
 INSERT INTO role_permissions (role_id, module, can_view, can_create, can_edit, can_delete) VALUES
-  ('r0000000-0000-0000-0000-000000000001', 'ssp', true, true, true, true),
-  ('r0000000-0000-0000-0000-000000000001', 'fact_entry', true, true, true, true),
-  ('r0000000-0000-0000-0000-000000000001', 'branches', true, true, true, true)
+  ('ca000000-0000-0000-0000-000000000001', 'ssp', true, true, true, true),
+  ('ca000000-0000-0000-0000-000000000001', 'fact_entry', true, true, true, true),
+  ('ca000000-0000-0000-0000-000000000001', 'branches', true, true, true, true)
 ON CONFLICT (role_id, module) DO NOTHING;
 
 -- Metric access for O'qituvchi: can view O'quv metric, NOT Moliya
 INSERT INTO role_metric_access (role_id, metric_id, can_view, can_enter_fact) VALUES
-  ('r0000000-0000-0000-0000-000000000003', 'e3333333-3333-3333-3333-333333333301', true, false)
+  ('ca000000-0000-0000-0000-000000000003', 'e3333333-3333-3333-3333-333333333301', true, false)
 ON CONFLICT (role_id, metric_id) DO NOTHING;
 -- Note: no row for RF1/Moliya → can_view defaults to false
 
 -- Metric access for Boshqaruvchi: all
 INSERT INTO role_metric_access (role_id, metric_id, can_view, can_enter_fact) VALUES
-  ('r0000000-0000-0000-0000-000000000001', 'e3333333-3333-3333-3333-333333333301', true, true),
-  ('r0000000-0000-0000-0000-000000000001', 'e3333333-3333-3333-3333-333333333302', true, true)
+  ('ca000000-0000-0000-0000-000000000001', 'e3333333-3333-3333-3333-333333333301', true, true),
+  ('ca000000-0000-0000-0000-000000000001', 'e3333333-3333-3333-3333-333333333302', true, true)
 ON CONFLICT (role_id, metric_id) DO NOTHING;
 
 -- Create test auth users via raw insert (in test env, we simulate auth.uid)
@@ -72,7 +72,7 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO profiles (id, full_name, phone, role_id, branch_id, is_owner, is_active) VALUES
-  ('c3333333-3333-3333-3333-333333333301', 'Test Teacher', '998111111111', 'r0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', false, true)
+  ('c3333333-3333-3333-3333-333333333301', 'Test Teacher', '998111111111', 'ca000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', false, true)
 ON CONFLICT (id) DO UPDATE SET role_id = EXCLUDED.role_id, branch_id = EXCLUDED.branch_id, is_active = true;
 
 -- Owner user
@@ -86,7 +86,7 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO profiles (id, full_name, phone, role_id, branch_id, is_owner, is_active) VALUES
-  ('c3333333-3333-3333-3333-333333333302', 'Test Owner', '998222222222', 'r0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', true, true)
+  ('c3333333-3333-3333-3333-333333333302', 'Test Owner', '998222222222', 'ca000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', true, true)
 ON CONFLICT (id) DO UPDATE SET is_owner = true, is_active = true;
 
 -- Insert facts for branch 2 (for cross-branch test)
