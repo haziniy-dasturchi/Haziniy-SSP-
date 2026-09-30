@@ -45,10 +45,10 @@ supabase db push --include-seed
 *(Alternatively, you can manually copy the contents of `seed.sql` and run it in the Supabase SQL Editor on the dashboard).*
 
 ### 7. Set Edge Function Secrets
-Edge functions require specific environment secrets to operate. Run the following commands, replacing the placeholders with your actual keys:
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are automatically injected into Supabase Edge Functions by default (Supabase prevents setting custom secrets starting with `SUPABASE_`).
+
+Only configure external secrets like Google Gemini:
 ```bash
-supabase secrets set SUPABASE_URL=https://xxx.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 supabase secrets set GEMINI_API_KEY=your-gemini-api-key
 supabase secrets set GEMINI_MODEL=gemini-2.5-flash
 ```
