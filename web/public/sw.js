@@ -1,10 +1,8 @@
 // Service Worker for Haziniy SSP PWA
-const CACHE_NAME = 'haziniy-ssp-v1';
+const CACHE_NAME = 'haziniy-ssp-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.webmanifest',
-  '/favicon.png',
+  '/brand/favicon.png',
   '/brand/logo-full-on-green.png',
   '/brand/logo-full-on-white.png',
   '/brand/logo-mark.png',
@@ -38,6 +36,23 @@ self.addEventListener('fetch', (event) => {
   // Ignore chrome-extension or supabase API calls
   if (event.request.url.includes('/rest/v1/') || event.request.url.includes('/auth/v1/')) return;
 
+  // HTML navigation requests: Network-First so users always get the latest deployed version
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => cached || caches.match('/index.html'));
+        })
+    );
+    return;
+  }
+
+  // Static assets (js, css, images): Cache-first with network fallback
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -56,10 +71,6 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
       });
     })
   );

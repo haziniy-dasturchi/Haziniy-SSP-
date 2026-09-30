@@ -78,15 +78,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, loadUserData]);
 
   useEffect(() => {
+    // Safety timeout: guarantee loading is resolved within 2.5 seconds max
+    const safetyTimeout = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn('Auth check timeout reached, unlocking UI');
+          return false;
+        }
+        return prev;
+      });
+    }, 2500);
+
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        loadUserData(session.user).finally(() => setLoading(false));
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser(session.user);
+          loadUserData(session.user).finally(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Session check failed:', err);
         setLoading(false);
-      }
-    });
+      })
+      .finally(() => {
+        clearTimeout(safetyTimeout);
+      });
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -104,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, [loadUserData]);
