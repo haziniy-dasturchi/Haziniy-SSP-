@@ -11,6 +11,7 @@ supabase/.branches/
 node_modules/
 dist/
 .cache/
+*.tsbuildinfo
 
 # IDE
 .vscode/
