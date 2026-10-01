@@ -37,7 +37,8 @@ const MetricSparklineCell: React.FC<{
   const { data: series = [] } = useQuery({
     queryKey: ['metric-series', branchId, metricId, dateFrom, dateTo, 'week'],
     queryFn: () => fetchMetricSeries(branchId, metricId, dateFrom, dateTo, 'week'),
-    staleTime: 60000,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   const points = series.map((s) => (s.pct ?? 0) * 100);
@@ -57,6 +58,8 @@ export const Scorecard: React.FC = () => {
   } = useQuery({
     queryKey: ['ssp', branchId, dateFrom, dateTo],
     queryFn: () => fetchSSP(branchId, dateFrom, dateTo),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   const toggleDept = (deptId: string) => {

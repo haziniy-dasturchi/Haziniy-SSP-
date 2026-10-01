@@ -30,8 +30,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 1,
-      staleTime: 30000,
+      staleTime: 5 * 60 * 1000, // 5 minutes fresh data
+      gcTime: 30 * 60 * 1000,    // 30 minutes in-memory cache
     },
   },
 });

@@ -117,6 +117,7 @@ export const FactsEntry: React.FC = () => {
       return planMap;
     },
     enabled: !!activeBranchId && enterableMetrics.length > 0,
+    staleTime: 10 * 60 * 1000,
   });
 
   // Synchronize existing facts into form values

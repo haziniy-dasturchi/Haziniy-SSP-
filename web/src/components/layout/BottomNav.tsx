@@ -21,6 +21,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { PermissionModule } from '../../types/database';
 
+import { prefetchRoute } from '../../utils/prefetch';
+
 interface MenuItem {
   to: string;
   label: string;
@@ -55,6 +57,8 @@ export const BottomNav: React.FC = () => {
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border flex items-center justify-around z-40 px-2 shadow-lg">
         <NavLink
           to="/"
+          onTouchStart={() => prefetchRoute('/')}
+          onMouseEnter={() => prefetchRoute('/')}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
               isActive ? 'text-primary font-semibold' : 'text-on-surface-muted hover:text-on-surface'
@@ -67,6 +71,8 @@ export const BottomNav: React.FC = () => {
 
         <NavLink
           to="/facts"
+          onTouchStart={() => prefetchRoute('/facts')}
+          onMouseEnter={() => prefetchRoute('/facts')}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
               isActive ? 'text-primary font-semibold' : 'text-on-surface-muted hover:text-on-surface'
@@ -79,6 +85,8 @@ export const BottomNav: React.FC = () => {
 
         <NavLink
           to="/bonus"
+          onTouchStart={() => prefetchRoute('/bonus')}
+          onMouseEnter={() => prefetchRoute('/bonus')}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
               isActive ? 'text-primary font-semibold' : 'text-on-surface-muted hover:text-on-surface'
@@ -125,6 +133,8 @@ export const BottomNav: React.FC = () => {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onTouchStart={() => prefetchRoute(item.to)}
+                    onMouseEnter={() => prefetchRoute(item.to)}
                     onClick={() => setIsMenuOpen(false)}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-medium transition-colors ${

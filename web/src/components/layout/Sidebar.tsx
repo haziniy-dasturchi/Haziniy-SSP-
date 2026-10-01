@@ -21,6 +21,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { PermissionModule } from '../../types/database';
 
+import { prefetchRoute } from '../../utils/prefetch';
+
 interface NavItem {
   to: string;
   label: string;
@@ -95,6 +97,8 @@ export const Sidebar: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onMouseEnter={() => prefetchRoute(item.to)}
+              onTouchStart={() => prefetchRoute(item.to)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-md text-label-md font-medium transition-colors ${
                   isActive
