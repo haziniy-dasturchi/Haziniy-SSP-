@@ -106,7 +106,11 @@ export const Structure: React.FC = () => {
       success(editingDept ? 'Bo‘lim yangilandi' : 'Yangi bo‘lim qo‘shildi');
       setDeptModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['departments'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-plan-grid'] });
       queryClient.invalidateQueries({ queryKey: ['ssp'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-facts'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-plans-map'] });
     },
     onError: (err: any) => {
       toastError(err.message || 'Xatolik yuz berdi');
@@ -143,8 +147,12 @@ export const Structure: React.FC = () => {
     onSuccess: () => {
       success(editingMetric ? 'Ko‘rsatkich yangilandi' : 'Yangi ko‘rsatkich qo‘shildi');
       setMetricModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
       queryClient.invalidateQueries({ queryKey: ['metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-plan-grid'] });
       queryClient.invalidateQueries({ queryKey: ['ssp'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-facts'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-plans-map'] });
     },
     onError: (err: any) => {
       toastError(err.message || 'Xatolik yuz berdi');
@@ -572,6 +580,11 @@ export const Structure: React.FC = () => {
             success("Bo'lim o'chirildi");
             setDeleteDeptOpen(false);
             queryClient.invalidateQueries({ queryKey: ['departments'] });
+            queryClient.invalidateQueries({ queryKey: ['metrics'] });
+            queryClient.invalidateQueries({ queryKey: ['monthly-plan-grid'] });
+            queryClient.invalidateQueries({ queryKey: ['ssp'] });
+            queryClient.invalidateQueries({ queryKey: ['daily-facts'] });
+            queryClient.invalidateQueries({ queryKey: ['daily-plans-map'] });
           }
         }}
         title="Bo'limni o'chirish"
@@ -590,7 +603,12 @@ export const Structure: React.FC = () => {
           } else {
             success("Ko'rsatkich o'chirildi");
             setDeleteMetricOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
             queryClient.invalidateQueries({ queryKey: ['metrics'] });
+            queryClient.invalidateQueries({ queryKey: ['monthly-plan-grid'] });
+            queryClient.invalidateQueries({ queryKey: ['ssp'] });
+            queryClient.invalidateQueries({ queryKey: ['daily-facts'] });
+            queryClient.invalidateQueries({ queryKey: ['daily-plans-map'] });
           }
         }}
         title="Ko'rsatkichni o'chirish"

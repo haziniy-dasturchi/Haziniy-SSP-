@@ -17,6 +17,8 @@ import {
   upsertMonthlyPlans,
   copyMonthPlans,
   fetchDailyPlan,
+  fetchDepartments,
+  fetchMetrics,
   MonthlyPlanGridItem,
   DailyPlanItem,
 } from '../api';
@@ -32,6 +34,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { formatMonthYear, formatDate, formatMetricValue } from '../i18n/uz';
 import { SYSTEM_START_DATE } from '../utils/dates';
 import { startOfMonth, endOfMonth, parseISO, format } from 'date-fns';
+import { RefreshCw } from 'lucide-react';
 
 export const PlansGrid: React.FC = () => {
   const { profile, can } = useAuth();
@@ -60,6 +63,17 @@ export const PlansGrid: React.FC = () => {
   const [selectedMetric, setSelectedMetric] = useState<{ id: string; name: string; code: string } | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-09-01');
 
+  // Fetch departments and metrics to guarantee deleted/inactive metrics are filtered out
+  const { data: departments = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+  });
+
+  const { data: allMetrics = [] } = useQuery({
+    queryKey: ['metrics'],
+    queryFn: fetchMetrics,
+  });
+
   // Fetch monthly plan grid
   const {
     data: gridData = [],
@@ -72,15 +86,33 @@ export const PlansGrid: React.FC = () => {
     enabled: !!activeBranchId,
   });
 
-  // Extract unique month columns from grid data
+  // Filter gridData to strictly include only currently active metrics in active departments
+  const activeMetricIds = useMemo(() => {
+    if (allMetrics.length === 0) return null;
+    const activeDeptIds = new Set(
+      departments.filter((d) => d.is_active).map((d) => d.id)
+    );
+    return new Set(
+      allMetrics
+        .filter((m) => m.is_active && (activeDeptIds.size === 0 || activeDeptIds.has(m.department_id)))
+        .map((m) => m.id)
+    );
+  }, [departments, allMetrics]);
+
+  const activeGridData = useMemo(() => {
+    if (!activeMetricIds) return gridData;
+    return gridData.filter((row) => activeMetricIds.has(row.metric_id));
+  }, [gridData, activeMetricIds]);
+
+  // Extract unique month columns from active grid data
   const monthColumns = useMemo(() => {
-    if (!gridData || gridData.length === 0) return [];
+    if (!activeGridData || activeGridData.length === 0) return [];
     const months = new Set<string>();
-    gridData.forEach((row) => {
+    activeGridData.forEach((row) => {
       row.months?.forEach((m) => months.add(m.month));
     });
     return Array.from(months).sort();
-  }, [gridData]);
+  }, [activeGridData]);
 
   const handleCellChange = (metricId: string, month: string, val: string) => {
     const key = `${metricId}_${month}`;
@@ -190,29 +222,45 @@ export const PlansGrid: React.FC = () => {
           </p>
         </div>
 
-        {canEdit && (
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => setCopyModalOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Copy className="w-4 h-4" />
-              <span>O'tgan oydan nusxa</span>
-            </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              refetchGrid();
+              queryClient.invalidateQueries({ queryKey: ['departments'] });
+              queryClient.invalidateQueries({ queryKey: ['metrics'] });
+            }}
+            className="flex items-center gap-2 text-on-surface-muted hover:text-on-surface"
+            title="Jadvalni yangilash"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Yangilash</span>
+          </Button>
 
-            <Button
-              variant="primary"
-              onClick={() => saveMutation.mutate()}
-              loading={saveMutation.isPending}
-              disabled={!isDirty}
-              className="flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>Saqlash {isDirty ? '*' : ''}</span>
-            </Button>
-          </div>
-        )}
+          {canEdit && (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setCopyModalOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                <span>O'tgan oydan nusxa</span>
+              </Button>
+
+              <Button
+                variant="primary"
+                onClick={() => saveMutation.mutate()}
+                loading={saveMutation.isPending}
+                disabled={!isDirty}
+                className="flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>Saqlash {isDirty ? '*' : ''}</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Main Grid Table Card */}
@@ -233,14 +281,14 @@ export const PlansGrid: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {gridData.length === 0 ? (
+              {activeGridData.length === 0 ? (
                 <tr>
                   <td colSpan={monthColumns.length + 2} className="py-8 text-center text-on-surface-muted">
                     Rejalar jadvali bo'sh
                   </td>
                 </tr>
               ) : (
-                gridData.map((row) => (
+                activeGridData.map((row) => (
                   <tr key={row.metric_id} className="hover:bg-surface-muted/30 transition-colors">
                     {/* Metric Name */}
                     <td className="py-3 px-4 font-semibold text-on-surface sticky left-0 bg-surface z-10 shadow-[1px_0_0_0_#E2E8E4]">
