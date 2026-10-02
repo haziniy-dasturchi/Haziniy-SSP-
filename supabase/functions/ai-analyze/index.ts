@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request
-    const { branch_id, date_from, date_to } = await req.json()
+    const { branch_id, date_from, date_to, gemini_api_key } = await req.json()
     if (!date_from || !date_to) {
       return new Response(JSON.stringify({ error: "Sana oralig'i kiritilishi shart" }), {
         status: 400, headers: jsonHeaders,
@@ -144,11 +144,14 @@ Deno.serve(async (req: Request) => {
     // =========================================================================
     // Call Gemini API
     // =========================================================================
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
-    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash'
+    const apiKey = gemini_api_key || Deno.env.get('GEMINI_API_KEY')
+    const model = Deno.env.get('GEMINI_MODEL') || 'gemini-1.5-flash'
 
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured')
+      return new Response(
+        JSON.stringify({ error: 'GEMINI_API_KEY sozlanmagan. Iltimos, Supabase secrets orqali yoki tizim interfeysida Gemini API kalitini kiriting.' }),
+        { status: 400, headers: jsonHeaders }
+      )
     }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
@@ -183,7 +186,7 @@ Deno.serve(async (req: Request) => {
     if (!geminiRes.ok) {
       const errorText = await geminiRes.text()
       console.error('Gemini API error:', errorText)
-      throw new Error(`Gemini API xatosi: ${geminiRes.status}`)
+      throw new Error(`Gemini API xatosi (${geminiRes.status}): ${errorText.slice(0, 150)}`)
     }
 
     const geminiData = await geminiRes.json()
@@ -224,7 +227,8 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify(parsedResult), { status: 200, headers: jsonHeaders })
   } catch (error: unknown) {
     console.error('AI Analyze Error:', error)
-    return new Response(JSON.stringify({ error: 'Tahlil jarayonida xatolik yuz berdi' }), {
+    const errMsg = error instanceof Error ? error.message : 'Tahlil jarayonida xatolik yuz berdi'
+    return new Response(JSON.stringify({ error: errMsg }), {
       status: 500, headers: jsonHeaders,
     })
   }

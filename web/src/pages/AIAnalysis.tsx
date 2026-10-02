@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Building,
   Calendar,
+  KeyRound,
 } from 'lucide-react';
 import { supabase } from '../api/supabase';
 import { runAIAnalysis } from '../api';
@@ -19,6 +20,8 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Skeleton } from '../components/common/Skeleton';
+import { Modal } from '../components/common/Modal';
+import { Input } from '../components/common/Input';
 import { EmptyState } from '../components/common/EmptyState';
 import { formatDate, formatPercent } from '../i18n/uz';
 import { AIAnalysisResult, AIAnalysisRecord } from '../types/database';
@@ -29,6 +32,8 @@ export const AIAnalysis: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [currentResult, setCurrentResult] = useState<AIAnalysisResult | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   // Fetch past analyses history
   const { data: history = [], isLoading: historyLoading } = useQuery<AIAnalysisRecord[]>({
@@ -76,16 +81,31 @@ export const AIAnalysis: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => analyzeMutation.mutate()}
-          loading={analyzeMutation.isPending}
-          className="flex items-center gap-2 shadow-sm"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span>Tahlil qilish</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setApiKeyInput(localStorage.getItem('haziniy_gemini_api_key') || '');
+              setSettingsModalOpen(true);
+            }}
+            className="flex items-center gap-2"
+            title="Gemini API sozlamalari"
+          >
+            <KeyRound className="w-4 h-4 text-on-surface-muted" />
+            <span className="hidden sm:inline">API Sozlamalari</span>
+          </Button>
+
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => analyzeMutation.mutate()}
+            loading={analyzeMutation.isPending}
+            className="flex items-center gap-2 shadow-sm"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span>Tahlil qilish</span>
+          </Button>
+        </div>
       </div>
 
       {/* AI Processing Loading State */}
@@ -173,15 +193,21 @@ export const AIAnalysis: React.FC = () => {
                 <p className="text-body-sm text-on-surface-muted">Kuchli tomonlar topilmadi.</p>
               ) : (
                 <div className="space-y-2.5">
-                  {currentResult.strengths?.map((strength, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3.5 rounded-xl border border-[#BCE8CD] bg-[#E3F5EA]/40 text-body-md font-medium text-on-surface flex items-start gap-2.5"
-                    >
-                      <span className="w-2 h-2 rounded-full bg-[#1F9D55] mt-2 shrink-0" />
-                      <span>{strength}</span>
-                    </div>
-                  ))}
+                  {currentResult.strengths?.map((strength, idx) => {
+                    const text =
+                      typeof strength === 'string'
+                        ? strength
+                        : `${(strength as any).metric_code || ''}: ${formatPercent((strength as any).pct || 0)}`;
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-xl border border-[#BCE8CD] bg-[#E3F5EA]/40 text-body-md font-medium text-on-surface flex items-start gap-2.5"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-[#1F9D55] mt-2 shrink-0" />
+                        <span>{text}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </Card>
@@ -274,6 +300,75 @@ export const AIAnalysis: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Gemini Settings Modal */}
+      <Modal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        title="Sun'iy Intellekt Sozlamalari"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSettingsModalOpen(false)}>
+              Yopish
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                const key = apiKeyInput.trim();
+                if (key) {
+                  localStorage.setItem('haziniy_gemini_api_key', key);
+                  success("Gemini API kaliti saqlandi va faollashtirildi");
+                } else {
+                  localStorage.removeItem('haziniy_gemini_api_key');
+                  success("Standart BSC AI tahlilchisi tanlandi");
+                }
+                setSettingsModalOpen(false);
+              }}
+            >
+              Saqlash
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-body-sm text-on-surface-muted leading-relaxed">
+            AI Tahlil tizimi standart holatda o'rnatilgan <strong>Balanced Scorecard AI dvigateli</strong> yordamida chuqur tahlilni avtomatik amalga oshiradi.
+          </p>
+          <p className="text-body-sm text-on-surface-muted leading-relaxed">
+            Agar Google Gemini modelini to'g'ridan-to'g'ri ulashni xohlasangiz, Google AI Studio orqali olingan bepul API kalitni kiriting:
+          </p>
+
+          <div>
+            <Input
+              label="Google Gemini API Key (Ixtiyoriy)"
+              placeholder="AIzaSy..."
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              helperText="Google AI Studio orqali bepul olingan API kalit"
+            />
+            <div className="mt-1 text-xs text-on-surface-muted">
+              Kalit olish manzili:{' '}
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline font-medium hover:text-primary-focus"
+              >
+                aistudio.google.com/app/apikey
+              </a>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-surface-muted text-xs text-on-surface-muted space-y-1 border border-border">
+            <span className="font-semibold block text-on-surface">Joriy holat:</span>
+            <span>
+              {localStorage.getItem('haziniy_gemini_api_key')
+                ? "✅ Maxsus Google Gemini API kaliti ulangan"
+                : "💡 O'rnatilgan aqlli BSC AI tahlilchisi faol (cheksiz va tezkor)"}
+            </span>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

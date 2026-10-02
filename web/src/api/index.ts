@@ -16,6 +16,7 @@ import {
   DailyFact,
   AuditLogItem,
 } from '../types/database';
+import { generateBSCAnalysis, callGeminiDirectly } from '../utils/aiAnalysisEngine';
 
 // ============================================================================
 // Auth & RPCs
@@ -172,17 +173,85 @@ export async function copyMonthPlans(
 export async function runAIAnalysis(
   branchId: string | null,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  apiKeyOverride?: string
 ): Promise<AIAnalysisResult> {
-  const { data, error } = await supabase.functions.invoke('ai-analyze', {
-    body: {
-      branch_id: branchId || null,
-      date_from: dateFrom,
-      date_to: dateTo,
-    },
-  });
-  if (error) throw error;
-  return data as AIAnalysisResult;
+  const customApiKey =
+    apiKeyOverride ||
+    localStorage.getItem('haziniy_gemini_api_key') ||
+    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    undefined;
+
+  // 1. Try invoking the Edge Function first
+  try {
+    const { data, error } = await supabase.functions.invoke('ai-analyze', {
+      body: {
+        branch_id: branchId || null,
+        date_from: dateFrom,
+        date_to: dateTo,
+        gemini_api_key: customApiKey,
+      },
+    });
+
+    if (!error && data && data.summary) {
+      return data as AIAnalysisResult;
+    }
+
+    if (error) {
+      let edgeMsg = error.message;
+      if ('context' in error && error.context) {
+        try {
+          const body = await (error.context as Response).json();
+          if (body?.error) edgeMsg = body.error;
+        } catch {}
+      }
+      console.warn('Edge Function ai-analyze returned error, falling back:', edgeMsg);
+    }
+  } catch (err) {
+    console.warn('Edge Function invoke failed, proceeding to client analysis:', err);
+  }
+
+  // 2. Fetch fresh SSP scorecard data directly via RPC
+  const sspData = await fetchSSP(branchId, dateFrom, dateTo);
+
+  let result: AIAnalysisResult;
+  let usedModel = 'bsc-ai-engine';
+
+  // 3. If a Gemini API key is configured, try direct Gemini call
+  if (customApiKey) {
+    try {
+      result = await callGeminiDirectly(customApiKey, {
+        ssp: sspData,
+      });
+      usedModel = 'gemini-1.5-flash';
+    } catch (geminiErr: any) {
+      console.warn('Direct Gemini call failed, falling back to BSC AI engine:', geminiErr);
+      result = generateBSCAnalysis(sspData);
+    }
+  } else {
+    // 4. Run built-in intelligent BSC Operational AI Engine
+    result = generateBSCAnalysis(sspData);
+  }
+
+  // 5. Persist the generated analysis to database so it is recorded in history
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('ai_analyses').insert({
+        branch_id: branchId || null,
+        date_from: dateFrom,
+        date_to: dateTo,
+        created_by: user.id,
+        input_snapshot: { ssp: sspData },
+        result,
+        model: usedModel,
+      });
+    }
+  } catch (dbErr) {
+    console.warn('Failed to archive analysis to DB:', dbErr);
+  }
+
+  return result;
 }
 
 export async function adminUsersAction(

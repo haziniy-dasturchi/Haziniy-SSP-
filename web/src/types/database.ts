@@ -238,7 +238,7 @@ export interface AIAnalysisResult {
     deadline_days: number;
     expected_effect: string;
   }>;
-  strengths: string[];
+  strengths: Array<string | { metric_code: string; pct: number }>;
 }
 
 export interface AIAnalysisRecord {
