@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Save,
@@ -10,6 +10,9 @@ import {
   AlertCircle,
   ChevronRight,
   TrendingUp,
+  TrendingDown,
+  Calculator,
+  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../api/supabase';
 import {
@@ -34,7 +37,24 @@ import { EmptyState } from '../components/common/EmptyState';
 import { formatMonthYear, formatDate, formatMetricValue } from '../i18n/uz';
 import { SYSTEM_START_DATE } from '../utils/dates';
 import { startOfMonth, endOfMonth, parseISO, format } from 'date-fns';
-import { RefreshCw } from 'lucide-react';
+import { MetricUnit, MetricCalcType } from '../types/database';
+
+export interface GridRowItem {
+  metric_id: string;
+  metric_code: string;
+  metric_name: string;
+  department: string;
+  department_id: string;
+  unit: MetricUnit;
+  sort_order: number;
+  dept_sort_order: number;
+  isCalculated: boolean;
+  calcType?: MetricCalcType;
+  formulaLabel?: string;
+  operandAId?: string | null;
+  operandBId?: string | null;
+  months: Array<{ month: string; value: number | null }>;
+}
 
 export const PlansGrid: React.FC = () => {
   const { profile, can } = useAuth();
@@ -86,41 +106,174 @@ export const PlansGrid: React.FC = () => {
     enabled: !!activeBranchId,
   });
 
-  // Filter gridData to strictly include only currently active metrics in active departments
-  const activeMetricIds = useMemo(() => {
-    if (allMetrics.length === 0) return null;
-    const activeDeptIds = new Set(
-      departments.filter((d) => d.is_active).map((d) => d.id)
-    );
-    return new Set(
-      allMetrics
-        .filter((m) => m.is_active && (activeDeptIds.size === 0 || activeDeptIds.has(m.department_id)))
-        .map((m) => m.id)
-    );
-  }, [departments, allMetrics]);
-
-  const activeGridData = useMemo(() => {
-    if (!activeMetricIds) return gridData;
-    return gridData.filter((row) => activeMetricIds.has(row.metric_id));
-  }, [gridData, activeMetricIds]);
-
   // Extract unique month columns from active grid data
   const monthColumns = useMemo(() => {
-    if (!activeGridData || activeGridData.length === 0) return [];
     const months = new Set<string>();
-    activeGridData.forEach((row) => {
+    gridData.forEach((row) => {
       row.months?.forEach((m) => months.add(m.month));
     });
+    if (months.size === 0) {
+      let cur = parseISO(yearStart);
+      for (let i = 0; i < 12; i++) {
+        months.add(format(cur, 'yyyy-MM-01'));
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      }
+    }
     return Array.from(months).sort();
-  }, [activeGridData]);
+  }, [gridData, yearStart]);
+
+  // Combine regular input metrics with calculated metrics (e.g. F3 Foyda = Kirim - Chiqim)
+  const combinedGridRows = useMemo<GridRowItem[]>(() => {
+    if (departments.length === 0 || allMetrics.length === 0) {
+      return gridData.map((row) => ({
+        ...row,
+        department_id: '',
+        unit: 'count' as MetricUnit,
+        sort_order: 0,
+        dept_sort_order: 0,
+        isCalculated: false,
+      }));
+    }
+
+    const activeDeptMap = new Map(
+      departments.filter((d) => d.is_active).map((d) => [d.id, d])
+    );
+    const metricMap = new Map(allMetrics.map((m) => [m.id, m]));
+
+    const rows: GridRowItem[] = [];
+
+    // 1. Process active input metrics from gridData
+    gridData.forEach((row) => {
+      const metric = metricMap.get(row.metric_id);
+      if (!metric || !metric.is_active) return;
+      const dept = activeDeptMap.get(metric.department_id);
+      if (!dept) return;
+
+      rows.push({
+        metric_id: row.metric_id,
+        metric_code: row.metric_code,
+        metric_name: row.metric_name,
+        department: dept.name,
+        department_id: dept.id,
+        unit: metric.unit,
+        sort_order: metric.sort_order,
+        dept_sort_order: dept.sort_order,
+        isCalculated: false,
+        months: row.months || [],
+      });
+    });
+
+    // 2. Process active calculated metrics (difference / ratio)
+    allMetrics.forEach((m) => {
+      if (!m.is_active || m.calc_type === 'input') return;
+      const dept = activeDeptMap.get(m.department_id);
+      if (!dept) return;
+
+      const opA = m.operand_a_id ? metricMap.get(m.operand_a_id) : null;
+      const opB = m.operand_b_id ? metricMap.get(m.operand_b_id) : null;
+
+      const opAName = opA ? opA.name : 'A';
+      const opBName = opB ? opB.name : 'B';
+      const opSymbol = m.calc_type === 'difference' ? '−' : '÷';
+      const formulaLabel = `${opAName} ${opSymbol} ${opBName}`;
+
+      rows.push({
+        metric_id: m.id,
+        metric_code: m.code,
+        metric_name: m.name,
+        department: dept.name,
+        department_id: dept.id,
+        unit: m.unit,
+        sort_order: m.sort_order,
+        dept_sort_order: dept.sort_order,
+        isCalculated: true,
+        calcType: m.calc_type,
+        formulaLabel,
+        operandAId: m.operand_a_id,
+        operandBId: m.operand_b_id,
+        months: monthColumns.map((mc) => ({ month: mc, value: null })),
+      });
+    });
+
+    return rows.sort((a, b) => {
+      if (a.dept_sort_order !== b.dept_sort_order) {
+        return a.dept_sort_order - b.dept_sort_order;
+      }
+      return a.sort_order - b.sort_order;
+    });
+  }, [departments, allMetrics, gridData, monthColumns]);
+
+  // Read operand values for calculated metrics
+  const getOperandValue = useCallback(
+    (metricId?: string | null, month?: string): number | null => {
+      if (!metricId || !month) return null;
+      const key = `${metricId}_${month}`;
+      if (key in editedCells) {
+        const str = editedCells[key];
+        if (str === '' || str === undefined) return null;
+        const parsed = parseFloat(str.replace(/\s+/g, '').replace(',', '.'));
+        return isNaN(parsed) ? null : parsed;
+      }
+      const gridRow = gridData.find((r) => r.metric_id === metricId);
+      const mItem = gridRow?.months?.find((item) => item.month === month);
+      return mItem?.value !== null && mItem?.value !== undefined ? Number(mItem.value) : null;
+    },
+    [editedCells, gridData]
+  );
+
+  // Compute live cell value for display
+  const getCellValue = useCallback(
+    (row: GridRowItem, month: string) => {
+      if (!row.isCalculated) {
+        const key = `${row.metric_id}_${month}`;
+        const isEdited = key in editedCells;
+        const raw = isEdited
+          ? editedCells[key]
+          : row.months?.find((item) => item.month === month)?.value;
+        const numVal =
+          raw !== '' && raw !== null && raw !== undefined
+            ? parseFloat(String(raw).replace(/\s+/g, '').replace(',', '.'))
+            : null;
+        return {
+          numVal: numVal !== null && !isNaN(numVal) ? numVal : null,
+          displayVal: raw !== null && raw !== undefined ? String(raw) : '',
+        };
+      }
+
+      // Calculated metric (e.g. F3 Foyda = F1 Kirim - F2 Chiqim)
+      const valA = getOperandValue(row.operandAId, month);
+      const valB = getOperandValue(row.operandBId, month);
+
+      if (valA === null && valB === null) {
+        return { numVal: null, displayVal: '—' };
+      }
+
+      const a = valA ?? 0;
+      const b = valB ?? 0;
+      let calcVal: number | null = null;
+      if (row.calcType === 'difference') {
+        calcVal = a - b;
+      } else if (row.calcType === 'ratio') {
+        calcVal = b !== 0 ? a / b : null;
+      }
+
+      return {
+        numVal: calcVal,
+        displayVal: calcVal !== null ? String(calcVal) : '—',
+      };
+    },
+    [editedCells, getOperandValue]
+  );
 
   const handleCellChange = (metricId: string, month: string, val: string) => {
+    const row = combinedGridRows.find((r) => r.metric_id === metricId);
+    if (row?.isCalculated) return;
     const key = `${metricId}_${month}`;
     setEditedCells((prev) => ({ ...prev, [key]: val }));
     setIsDirty(true);
   };
 
-  // Batch save mutation
+  // Batch save mutation (only persists input metrics)
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeBranchId) throw new Error('Filial tanlanmagan');
@@ -131,8 +284,13 @@ export const PlansGrid: React.FC = () => {
         value: number;
       }> = [];
 
+      const calculatedIds = new Set(
+        combinedGridRows.filter((r) => r.isCalculated).map((r) => r.metric_id)
+      );
+
       for (const [key, valStr] of Object.entries(editedCells)) {
         const [metric_id, month] = key.split('_');
+        if (calculatedIds.has(metric_id)) continue;
         const numVal = parseFloat(valStr.replace(/\s+/g, '').replace(',', '.'));
         if (!isNaN(numVal)) {
           rowsToUpsert.push({
@@ -159,6 +317,7 @@ export const PlansGrid: React.FC = () => {
         setIsDirty(false);
         refetchGrid();
         queryClient.invalidateQueries({ queryKey: ['ssp'] });
+        queryClient.invalidateQueries({ queryKey: ['daily-plans-map'] });
       }
     },
     onError: (err: any) => {
@@ -281,22 +440,46 @@ export const PlansGrid: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {activeGridData.length === 0 ? (
+              {combinedGridRows.length === 0 ? (
                 <tr>
                   <td colSpan={monthColumns.length + 2} className="py-8 text-center text-on-surface-muted">
                     Rejalar jadvali bo'sh
                   </td>
                 </tr>
               ) : (
-                activeGridData.map((row) => (
-                  <tr key={row.metric_id} className="hover:bg-surface-muted/30 transition-colors">
+                combinedGridRows.map((row) => (
+                  <tr
+                    key={row.metric_id}
+                    className={`hover:bg-surface-muted/30 transition-colors ${
+                      row.isCalculated ? 'bg-[#F9FBFA]/80' : ''
+                    }`}
+                  >
                     {/* Metric Name */}
                     <td className="py-3 px-4 font-semibold text-on-surface sticky left-0 bg-surface z-10 shadow-[1px_0_0_0_#E2E8E4]">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-surface-muted text-on-surface">
-                          {row.metric_code}
-                        </span>
-                        <span className="truncate max-w-[180px]">{row.metric_name}</span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
+                              row.isCalculated
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-surface-muted text-on-surface'
+                            }`}
+                          >
+                            {row.metric_code}
+                          </span>
+                          <span className="truncate max-w-[180px]" title={row.metric_name}>
+                            {row.metric_name}
+                          </span>
+                        </div>
+                        {row.isCalculated && (
+                          <div
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/20 w-fit"
+                            title={`Formula: ${row.formulaLabel || 'Kirim − Chiqim'}`}
+                          >
+                            <Calculator className="w-3 h-3 text-primary shrink-0" />
+                            <span>f(x) = {row.formulaLabel || 'Kirim − Chiqim'}</span>
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -307,14 +490,41 @@ export const PlansGrid: React.FC = () => {
 
                     {/* Month Value Cells */}
                     {monthColumns.map((m) => {
-                      const monthData = row.months?.find((item) => item.month === m);
-                      const key = `${row.metric_id}_${m}`;
-                      const isEdited = key in editedCells;
-                      const displayVal = isEdited
-                        ? editedCells[key]
-                        : monthData?.value !== null && monthData?.value !== undefined
-                        ? String(monthData.value)
-                        : '';
+                      const cell = getCellValue(row, m);
+
+                      if (row.isCalculated) {
+                        return (
+                          <td key={m} className="py-2 px-2 text-right">
+                            <div className="flex items-center justify-end">
+                              {cell.numVal === null ? (
+                                <span className="text-on-surface-muted text-xs font-medium px-2 py-1">
+                                  —
+                                </span>
+                              ) : cell.numVal > 0 ? (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold bg-[#E3F5EA] text-[#17703D] border border-[#BCE8CD] shadow-2xs"
+                                  title={`Foyda (ko'payish): +${formatMetricValue(cell.numVal, row.unit)}`}
+                                >
+                                  <TrendingUp className="w-3.5 h-3.5 text-[#17703D] shrink-0" />
+                                  <span>+{formatMetricValue(cell.numVal, row.unit)}</span>
+                                </span>
+                              ) : cell.numVal < 0 ? (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold bg-[#FBE9E9] text-[#B33636] border border-[#F5C2C2] shadow-2xs"
+                                  title={`Zarar (kamayish): ${formatMetricValue(cell.numVal, row.unit)}`}
+                                >
+                                  <TrendingDown className="w-3.5 h-3.5 text-[#B33636] shrink-0" />
+                                  <span>{formatMetricValue(cell.numVal, row.unit)}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-surface-muted text-on-surface-muted border border-border">
+                                  0 so'm
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      }
 
                       return (
                         <td key={m} className="py-2 px-2 text-right">
@@ -322,7 +532,7 @@ export const PlansGrid: React.FC = () => {
                             <input
                               type="text"
                               disabled={!canEdit}
-                              value={displayVal}
+                              value={cell.displayVal}
                               onChange={(e) => handleCellChange(row.metric_id, m, e.target.value)}
                               placeholder="—"
                               className={`w-24 h-9 px-2 text-right rounded-sm text-body-sm font-semibold border transition-colors tnum ${
