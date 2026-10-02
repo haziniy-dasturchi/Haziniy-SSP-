@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   ClipboardPen,
@@ -48,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
 export const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { can, profile, signOut } = useAuth();
+  const location = useLocation();
 
   // Filter items based on permissions
   const visibleItems = NAV_ITEMS.filter((item) => {
@@ -96,7 +97,7 @@ export const Sidebar: React.FC = () => {
           return (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={{ pathname: item.to, search: location.search }}
               onMouseEnter={() => prefetchRoute(item.to)}
               onTouchStart={() => prefetchRoute(item.to)}
               className={({ isActive }) =>

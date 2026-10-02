@@ -30,6 +30,13 @@ export const BranchSwitcher: React.FC<BranchSwitcherProps> = ({
     },
   });
 
+  // Validate saved branchId against active branches list
+  React.useEffect(() => {
+    if (branches.length > 0 && currentBranchId && !branches.some((b) => b.id === currentBranchId)) {
+      onBranchChange(null);
+    }
+  }, [branches, currentBranchId, onBranchChange]);
+
   if (!isOwnerOrAll) {
     // Single branch mode
     const ownBranch = branches.find((b) => b.id === profile?.branch_id);

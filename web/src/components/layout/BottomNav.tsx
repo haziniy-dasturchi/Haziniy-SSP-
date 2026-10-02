@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   ClipboardPen,
@@ -46,6 +46,7 @@ const MENU_ITEMS: MenuItem[] = [
 export const BottomNav: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { can, signOut } = useAuth();
+  const location = useLocation();
 
   const extraMenuItems = MENU_ITEMS.filter((item) => {
     if (!item.module) return true;
@@ -56,7 +57,7 @@ export const BottomNav: React.FC = () => {
     <>
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border flex items-center justify-around z-40 px-2 shadow-lg">
         <NavLink
-          to="/"
+          to={{ pathname: '/', search: location.search }}
           onTouchStart={() => prefetchRoute('/')}
           onMouseEnter={() => prefetchRoute('/')}
           className={({ isActive }) =>
@@ -70,7 +71,7 @@ export const BottomNav: React.FC = () => {
         </NavLink>
 
         <NavLink
-          to="/facts"
+          to={{ pathname: '/facts', search: location.search }}
           onTouchStart={() => prefetchRoute('/facts')}
           onMouseEnter={() => prefetchRoute('/facts')}
           className={({ isActive }) =>
@@ -84,7 +85,7 @@ export const BottomNav: React.FC = () => {
         </NavLink>
 
         <NavLink
-          to="/bonus"
+          to={{ pathname: '/bonus', search: location.search }}
           onTouchStart={() => prefetchRoute('/bonus')}
           onMouseEnter={() => prefetchRoute('/bonus')}
           className={({ isActive }) =>
@@ -132,7 +133,7 @@ export const BottomNav: React.FC = () => {
                 return (
                   <NavLink
                     key={item.to}
-                    to={item.to}
+                    to={{ pathname: item.to, search: location.search }}
                     onTouchStart={() => prefetchRoute(item.to)}
                     onMouseEnter={() => prefetchRoute(item.to)}
                     onClick={() => setIsMenuOpen(false)}
