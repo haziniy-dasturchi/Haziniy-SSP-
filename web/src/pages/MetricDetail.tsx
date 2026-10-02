@@ -31,6 +31,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import {
   formatPercent,
   formatMetricValue,
+  formatMetricDiff,
   formatDate,
   formatMonthYear,
 } from '../i18n/uz';
@@ -215,7 +216,7 @@ export const MetricDetail: React.FC = () => {
           </p>
           <span className="text-body-sm text-on-surface-muted mt-1 block">
             Farq: {summary.diff >= 0 ? '+' : ''}
-            {formatMetricValue(summary.diff, metric.unit)}
+            {formatMetricDiff(summary.diff, metric.unit)}
           </span>
         </Card>
 
@@ -391,7 +392,7 @@ export const MetricDetail: React.FC = () => {
                           }`}
                         >
                           {isPositive ? '+' : ''}
-                          {formatMetricValue(diff, metric.unit)}
+                          {formatMetricDiff(diff, metric.unit)}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">

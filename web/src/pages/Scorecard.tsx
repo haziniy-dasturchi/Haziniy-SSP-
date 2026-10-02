@@ -22,6 +22,7 @@ import { Sparkline } from '../components/charts/Sparkline';
 import {
   formatPercent,
   formatMetricValue,
+  formatMetricDiff,
   formatDate,
 } from '../i18n/uz';
 import { SSPDepartment, SSPMetric } from '../types/database';
@@ -300,7 +301,7 @@ export const Scorecard: React.FC = () => {
                                   }`}
                                 >
                                   {isPositive ? '+' : ''}
-                                  {formatMetricValue(diffVal, metric.unit)}
+                                  {formatMetricDiff(diffVal, metric.unit)}
                                 </span>
                               </td>
 

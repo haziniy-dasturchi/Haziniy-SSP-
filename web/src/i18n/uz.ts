@@ -229,18 +229,41 @@ export function formatCount(val: number | null | undefined): string {
  */
 export function formatPercent(val: number | null | undefined, decimals = 1): string {
   if (val === null || val === undefined || isNaN(val)) return '—';
-  const pctVal = val > 2 ? val : val * 100;
+  // Negative values in this system are differences or percentage changes (e.g. -14.7%), never ratios.
+  // Positive values: if val > 2, it is already in percentage format (e.g. 95.4 -> 95.4%);
+  // otherwise it represents a ratio between 0 and 2 (e.g. 0.954 -> 95.4%, 1.2 -> 120.0%).
+  const pctVal = val < 0 ? val : (val > 2 ? val : val * 100);
   return `${pctVal.toFixed(decimals)}%`;
 }
 
 /**
  * Metric value formatter based on unit
  */
-export function formatMetricValue(val: number | null | undefined, unit: 'count' | 'money' | 'percent'): string {
+export function formatMetricValue(
+  val: number | null | undefined,
+  unit: 'count' | 'money' | 'percent',
+  isDiff = false
+): string {
   if (val === null || val === undefined || isNaN(val)) return '—';
   if (unit === 'money') return formatMoney(val);
-  if (unit === 'percent') return formatPercent(val);
+  if (unit === 'percent') {
+    if (isDiff) {
+      // Differences for percentage metrics are always already in percentage points (e.g. -14.7, +1.5)
+      return `${val.toFixed(1)}%`;
+    }
+    return formatPercent(val);
+  }
   return formatCount(val);
+}
+
+/**
+ * Metric difference formatter (Farq)
+ */
+export function formatMetricDiff(
+  val: number | null | undefined,
+  unit: 'count' | 'money' | 'percent'
+): string {
+  return formatMetricValue(val, unit, true);
 }
 
 /**

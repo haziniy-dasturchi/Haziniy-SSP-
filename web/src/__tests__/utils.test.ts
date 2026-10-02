@@ -4,6 +4,7 @@ import {
   formatCount,
   formatPercent,
   formatMetricValue,
+  formatMetricDiff,
   formatDate,
   formatMonthYear,
 } from '../i18n/uz';
@@ -33,6 +34,17 @@ describe('Uzbek Formatting Utilities', () => {
     expect(formatPercent(95.4)).toBe('95.4%');
     expect(formatPercent(1.2)).toBe('120.0%');
     expect(formatPercent(null)).toBe('—');
+  });
+
+  it('formats percentage differences and negative values correctly', () => {
+    expect(formatPercent(-14.7)).toBe('-14.7%');
+    expect(formatPercent(-1.5)).toBe('-1.5%');
+    expect(formatMetricDiff(-14.7, 'percent')).toBe('-14.7%');
+    expect(formatMetricDiff(1.5, 'percent')).toBe('1.5%');
+    expect(formatMetricDiff(0, 'percent')).toBe('0.0%');
+    expect(formatMetricDiff(-22, 'count')).toBe('-22');
+    expect(formatMetricDiff(3, 'count')).toBe('3');
+    expect(formatMetricDiff(-1619023, 'money')).toBe("-1 619 023 so'm");
   });
 
   it('formats metric values according to unit', () => {
